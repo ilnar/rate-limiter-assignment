@@ -54,29 +54,45 @@ User is identified via API key or token, the authentication system is out of sco
 
 High precision, high performance, low scalability
 
+For a strategy that allows N requests over time interval T:
+
+Keep a list of timestamps of requests, as soon as a new request comes in,
+remove all the old entries older than timestamp of the new request minus T,
+calculate the size of the array and if it is less than N, add new timestamp
+and allow request. Otherwise, discard request.
+
+The list of timestamps will be sorted on single-threaded version of the
+limiter, hence removing the old entries will be easy using binary search.
+
+This approach stores timestamps of requests and performs a series of reads
+and writes in corresponding data structure, meaning it won't work well when
+T and N are big and/or the data structure will be accessed from many threads.
+
+Nevertheless, this approach provides the highest precision.
+
 ### Multithreaded monolithic service
 
-High precision, high performance, better scalability, complexity
+Medium precision, high performance, medium scalability
 
-### Distributed service under moderate load
+### Distributed service with many users with moderate load
 
-Low precision, high performance, high scalability
+Medium precision, high performance, medium scalability
 
-Using Memcache shared between instances
+Using hashtable (key-value storage) shared between instances
 
-High precision, low performance, high scalability
+Regular quota refresh in the background -> high read/write per user 
 
-Using distributed counter  
+### Distributed service with few users with high load
 
-### Large scale service with high load
+Low precision, low performance, medium scalability
+
+Using distributed counter -> high read, low write per user 
+
+### Large scale service with a mix of users and patterns
 
 Enforce rate limit per-region - not purely global service
 
 Or use eventually consistent storage for counter - low precision 
-
-## Alternatives
-
-Regular quota refresh in the background -> high read/write  
 
 ## Future Work
 
