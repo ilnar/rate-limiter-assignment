@@ -18,8 +18,13 @@ type Limiter func(userID string, ts time.Time) (Verdict, error)
 // Create creates a new precise rate limiter.
 func Create(limit int, duration time.Duration) (Limiter, error) {
 	if limit <= 0 {
-		return nil, fmt.Errorf("limit must be greater than zero, got %v", limit)
+		return nil, fmt.Errorf("want limit to be greater than zero, got %v", limit)
 	}
+
+	if duration.Nanoseconds() <= 0 {
+		return nil, fmt.Errorf("want duration to be greater than zero, got %v", duration)
+	}
+
 	pl := preciseLimiter{limit, duration, map[string][]time.Time{}}
 	return pl.processRequest, nil
 }
@@ -34,7 +39,7 @@ type preciseLimiter struct {
 func (pl *preciseLimiter) processRequest(userID string, t time.Time) (Verdict, error) {
 	if _, found := pl.requestTimesPerUser[userID]; !found {
 		pl.requestTimesPerUser[userID] = []time.Time{t}
-		return Verdict{Allow: true, RetryIn: 0}, nil
+		return Verdict{Allow: true}, nil
 	}
 
 	rts := pl.requestTimesPerUser[userID]
@@ -45,7 +50,9 @@ func (pl *preciseLimiter) processRequest(userID string, t time.Time) (Verdict, e
 
 	// Truncate the list of timestamps.
 	oldest := t.Add(-pl.duration)
-	pl.requestTimesPerUser[userID] = rts[findFirstNewerThan(rts, oldest):]
+	rts = rts[findFirstNewerThan(rts, oldest):]
+	pl.requestTimesPerUser[userID] = rts
+
 	// Check size.
 	if len(rts) >= pl.limit {
 		return Verdict{Allow: false, RetryIn: rts[0].Sub(oldest)}, nil
@@ -53,7 +60,7 @@ func (pl *preciseLimiter) processRequest(userID string, t time.Time) (Verdict, e
 
 	// Add new request timestamp.
 	pl.requestTimesPerUser[userID] = append(pl.requestTimesPerUser[userID], t)
-	return Verdict{Allow: true, RetryIn: 0}, nil
+	return Verdict{Allow: true}, nil
 }
 
 func findFirstNewerThan(ts []time.Time, t time.Time) int {
