@@ -8,6 +8,18 @@ import (
 
 const fakeUser = "fakeUser"
 
+func TestCreate(t *testing.T) {
+	if _, err := Create(0, 1*time.Minute); err == nil {
+		t.Error("Expected failure due to zero limit")
+	}
+	if _, err := Create(1, 0*time.Minute); err == nil {
+		t.Error("Expected failure due to zero duration")
+	}
+	if _, err := Create(2, 1*time.Minute); err != nil {
+		t.Errorf("Error creating rate limiter: %v", err)
+	}
+}
+
 func TestDetectWrongTime(t *testing.T) {
 	l, err := Create(2, 1*time.Minute)
 	if err != nil {
