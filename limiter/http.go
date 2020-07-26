@@ -1,0 +1,88 @@
+package limiter
+
+import (
+	"fmt"
+	"github.com/ilnar/rate-limiter-assignment/policy"
+	"log"
+	"net/http"
+	"time"
+)
+
+const API_KEY_QUERY_VAR = "api_key"
+
+type APIKeyResolver func(apiKey string) (string, bool)
+type PolicyFinder func(username string) (policy.Policy, bool)
+type Limiters map[policy.Policy]Limiter
+type WrappedHandler func(http.ResponseWriter, *http.Request)
+type Timer func() time.Time
+
+type Handler struct {
+	apiKeyResolver APIKeyResolver
+	policyFinder   PolicyFinder
+	limiters       Limiters
+	handler        WrappedHandler
+	timer          Timer
+}
+
+func CreateHandler(ar APIKeyResolver, pf PolicyFinder, ls Limiters, wh WrappedHandler, t Timer) *Handler {
+	return &Handler{apiKeyResolver: ar, policyFinder: pf, limiters: ls, handler: wh, timer: t}
+}
+
+func (h Handler) Handle(w http.ResponseWriter, r *http.Request) {
+	username, err := h.getUser(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, "Invalid API KEY")
+		return
+	}
+
+	l, err := h.getLimiter(username)
+	if err != nil {
+		log.Printf("Error finding rate limiter for user %q: %v", username, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, "Internal error")
+		return
+	}
+
+	t := h.timer()
+	v, err := l(username, t)
+	if err != nil {
+		log.Printf("Error calling rate limiter for user %q and time %v: %v", username, t, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, "Internal error")
+		return
+	}
+	if !v.Allow {
+		w.WriteHeader(http.StatusTooManyRequests)
+		fmt.Fprintf(w, "Rate limit exceeded. Try again in %v seconds", v.RetryIn.Seconds())
+		return
+	}
+	h.handler(w, r)
+}
+
+func (h Handler) getUser(r *http.Request) (string, error) {
+	q := r.URL.Query()
+	if len(q[API_KEY_QUERY_VAR]) != 1 {
+		return "", fmt.Errorf("missing API key in query: %v", q)
+	}
+	apiKey := q[API_KEY_QUERY_VAR][0]
+	username, found := h.apiKeyResolver(apiKey)
+	if !found {
+		return "", fmt.Errorf("user not found for API key: %q", apiKey)
+	}
+	return username, nil
+}
+
+func (h Handler) getLimiter(username string) (Limiter, error) {
+	p, found := h.policyFinder(username)
+	if !found {
+		return nil, fmt.Errorf("policy not found for user: %v", username)
+	}
+
+	l, found := h.limiters[p]
+	if !found {
+		return nil, fmt.Errorf("limiter not found for policy: %v", p)
+	}
+
+	return l, nil
+}

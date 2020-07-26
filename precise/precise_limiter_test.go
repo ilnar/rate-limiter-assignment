@@ -1,7 +1,8 @@
-package preciselimiter
+package precise
 
 import (
 	"github.com/google/go-cmp/cmp"
+	"github.com/ilnar/rate-limiter-assignment/limiter"
 	"testing"
 	"time"
 )
@@ -82,7 +83,7 @@ func TestThrottleCorrectly(t *testing.T) {
 	if v, err := l(fakeUser, time.Unix(30, 0)); err != nil || !v.Allow {
 		t.Fatalf("Error making second request, want it to be allowed, got: %v (error=%v)", v, err)
 	}
-	want := Verdict{Allow: false, RetryIn: 30 * time.Second}
+	want := limiter.Verdict{Allow: false, RetryIn: 30 * time.Second}
 	got, err := l(fakeUser, time.Unix(59, 0))
 	if !cmp.Equal(want, got) {
 		t.Errorf("Unexpected result, want %v; got %v", want, got)
