@@ -73,8 +73,13 @@ The rate limit is set per user. Users are authenticated by API keys.
 ## Scope
 
 Given time constraints and abstract problem statement the simplest rate limiter is implemented
-without any optimisations. Extensibility is demonstrated through integration with other components.
+without any optimisations.
+
+Extensibility is demonstrated through integration with other components.
 These components are not implemented and fakes with hardcoded values are used instead.
+
+The rate limiter does not perform garbage collection for users that stopped sending requests
+or changed rate limiter.
 
 ## Design
 
@@ -91,6 +96,9 @@ and allow request. Otherwise, discard request.
 
 The list of timestamps will be sorted on single-threaded version of the
 limiter, hence removing the old entries will be easy, using binary search.
+
+The list itself is not a classical linked list, but a data structure
+that support fast access by index and fast truncation (e.g. go slice).
 
 This approach stores timestamps of requests and performs a series of reads
 and writes in corresponding data structure, meaning it won't work well when
