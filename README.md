@@ -1,4 +1,4 @@
-# %YOU_FAVOURITE_MYTHOLOGICAL_HERO%
+# %YOUR_FAVOURITE_MYTHOLOGICAL_HERO%
 
 Rate Limiter - GoLang Coding Assignment 
 
@@ -15,7 +15,7 @@ seconds".
 ## Solution
 
 Solution implements the simplest single-threaded precise rate limiter (see more details below).
-The focus here is on extensibility and quality of the code. Other options are listed below.  
+The focus here is on extensibility and quality of the code.  
 
 ### Build and run
 
@@ -73,8 +73,13 @@ The rate limit is set per user. Users are authenticated by API keys.
 ## Scope
 
 Given time constraints and abstract problem statement the simplest rate limiter is implemented
-without any optimisations. Extensibility is demonstrated through integration with other components.
-These components are not implemented and fakes with hardcoded values are used.
+without any optimisations.
+
+Extensibility is demonstrated through integration with other components.
+These components are not implemented and fakes with hardcoded values are used instead.
+
+The rate limiter does not perform garbage collection for users that stopped sending requests
+or changed rate limiter.
 
 ## Design
 
@@ -86,11 +91,14 @@ For a strategy that allows N requests over time interval T:
 
 Keep a list of timestamps of requests, as soon as a new request comes in,
 remove all the entries older than timestamp of the new request minus T,
-calculate the size of the array and if it is less than N, add new timestamp
+calculate the size of the list and if it is less than N, add new timestamp
 and allow request. Otherwise, discard request.
 
 The list of timestamps will be sorted on single-threaded version of the
 limiter, hence removing the old entries will be easy, using binary search.
+
+The list itself is not a classical linked list, but a data structure
+that support fast access by index and fast truncation (e.g. go slice).
 
 This approach stores timestamps of requests and performs a series of reads
 and writes in corresponding data structure, meaning it won't work well when
@@ -109,7 +117,7 @@ To minimise synchronisation overhead, batching can be implemented, hence the pre
 worse, meaning users might be able to go over rate limit or start to be blocked before
 reaching it. Probably, can run on a very big machine.
 
-### Distributed service with many users with moderate load
+### Distributed service with many users with moderate loads
 
 Medium precision, high performance, medium scalability
 
@@ -120,7 +128,7 @@ Run regular counter refresh in the background encreasing counter. Use batching.
  
 This approach is likely to result in high read/writes per user.  
 
-### Distributed service with few users with high load
+### Distributed service with few users with high loads
 
 Low precision, low performance, medium scalability
 
