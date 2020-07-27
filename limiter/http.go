@@ -10,12 +10,22 @@ import (
 
 const API_KEY_QUERY_VAR = "api_key"
 
+// APIKeyResolver defines an interface for getting username by API key.
 type APIKeyResolver func(apiKey string) (string, bool)
+
+// PolicyFinder defines an interface for getting Policy by username.
 type PolicyFinder func(username string) (policy.Policy, bool)
+
+// Limiter defines a type for storing different implementations of Limiter.
 type Limiters map[policy.Policy]Limiter
+
+// WrappedHandler defines an interface for the request handler being called by limiter in case of success.
 type WrappedHandler func(http.ResponseWriter, *http.Request)
+
+// Timer defines an interface for getting timestamp of a request.
 type Timer func() time.Time
 
+// Handler provides an HTTP handler supporting rate limiting.
 type Handler struct {
 	apiKeyResolver APIKeyResolver
 	policyFinder   PolicyFinder
@@ -24,10 +34,13 @@ type Handler struct {
 	timer          Timer
 }
 
+// CreateHandler creates a new handler.
 func CreateHandler(ar APIKeyResolver, pf PolicyFinder, ls Limiters, wh WrappedHandler, t Timer) *Handler {
 	return &Handler{apiKeyResolver: ar, policyFinder: pf, limiters: ls, handler: wh, timer: t}
 }
 
+// Handle examines request URI, identifies corresponding user and applies rate limiting.
+// It does not read request body.
 func (h Handler) Handle(w http.ResponseWriter, r *http.Request) {
 	username, err := h.getUser(r)
 	if err != nil {

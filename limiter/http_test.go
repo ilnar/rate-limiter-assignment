@@ -61,8 +61,9 @@ func TestApiKeyFailure(t *testing.T) {
 	r := httptest.NewRequest("GET", "http://example.com/foo?", nil)
 	w := httptest.NewRecorder()
 	h.Handle(w, r)
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("Wrong HTTP status code, want 401, got: %v", w.Code)
+	want := http.StatusUnauthorized
+	if w.Code != want {
+		t.Errorf("Wrong HTTP status code, want %v, got: %v", want, w.Code)
 	}
 }
 
@@ -79,7 +80,8 @@ func TestRateLimit(t *testing.T) {
 	r := httptest.NewRequest("GET", "http://example.com/foo?api_key="+fakeAPIKey, nil)
 	w := httptest.NewRecorder()
 	h.Handle(w, r)
-	if w.Code != http.StatusTooManyRequests {
-		t.Errorf("Wrong HTTP status code, want 401, got: %v", w.Code)
+	want := http.StatusTooManyRequests
+	if w.Code != want {
+		t.Errorf("Wrong HTTP status code, want %v, got: %v", want, w.Code)
 	}
 }
